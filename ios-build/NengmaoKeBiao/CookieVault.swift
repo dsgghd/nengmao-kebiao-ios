@@ -53,9 +53,10 @@ final class CookieVault {
         store.getAllCookies { [weak self] cookies in
             guard let self = self else { return }
             let now = Date()
-            let keep = cookies.filter { cookie in
-                guard let expires = cookie.expires else { return true }
-                return expires > now
+            var keep: [HTTPCookie] = []
+            for cookie in cookies {
+                if let expires = cookie.expiresDate, expires <= now { continue }
+                keep.append(cookie)
             }
             self.queue.async {
                 self.save(keep)
@@ -87,7 +88,7 @@ final class CookieVault {
                 "httpOnly": cookie.isHTTPOnly,
                 "version": cookie.version
             ]
-            if let expires = cookie.expires {
+            if let expires = cookie.expiresDate {
                 record["expires"] = expires.timeIntervalSince1970
             }
             return record
