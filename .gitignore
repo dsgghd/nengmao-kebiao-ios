@@ -20,3 +20,5 @@ install/gh/shots/
 install/gh/*.log
 
 install/gh/
+
+install/*.ipa
