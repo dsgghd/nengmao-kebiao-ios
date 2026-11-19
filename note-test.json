@@ -1,0 +1,41 @@
+{
+  "first_card_note": "08:00\n09:40\n1–2 节\n汽车文化\n崇思楼A305 · 瘦西湖校区 · 强爱民\n第 7–16 周\n备注带实验报告",
+  "notes_store": "{\"b_demo_1\":{\"text\":\"带实验报告\",\"remindMinutes\":10,\"updatedAt\":\"2026-11-16T07:40:01.995Z\"}}",
+  "reminders_after_note": 54,
+  "reminder_sample": [
+    {
+      "id": "b_demo_1-13",
+      "at": 1795391400000,
+      "title": "能猫课表 · 汽车文化",
+      "body": "10 分钟后上课 · 崇思楼A305 瘦西湖校区 · 带实验报告"
+    },
+    {
+      "id": "b_demo_1-14",
+      "at": 1795996200000,
+      "title": "能猫课表 · 汽车文化",
+      "body": "10 分钟后上课 · 崇思楼A305 瘦西湖校区 · 带实验报告"
+    },
+    {
+      "id": "b_demo_1-15",
+      "at": 1796601000000,
+      "title": "能猫课表 · 汽车文化",
+      "body": "10 分钟后上课 · 崇思楼A305 瘦西湖校区 · 带实验报告"
+    }
+  ],
+  "default_before": "15",
+  "default_after": 5,
+  "week_note_dots": 1,
+  "ics_name": "能猫课表-2026-2027学年第一学期.ics",
+  "ics_valarm": 136,
+  "ics_note": true,
+  "ics_trigger10": true,
+  "json_notes": {
+    "b_demo_1": {
+      "text": "带实验报告",
+      "remindMinutes": 10,
+      "updatedAt": "2026-11-16T07:40:01.995Z"
+    }
+  },
+  "note_after_reload": "{\"b_demo_1\":{\"text\":\"带实验报告\",\"remindMinutes\":10,\"updatedAt\":\"2026-11-16T07:40:01.995Z\"}}",
+  "console_errors": []
+}

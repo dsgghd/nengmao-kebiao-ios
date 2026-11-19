@@ -1,0 +1,22 @@
+# 产物与第三方目录不进仓库（GitHub 只用来编译 ios-build）
+*.apk
+dist-ipa/
+preview/
+android-build/
+ios-build/.tools-py/
+ios-build/build/
+ios-build/DerivedData/
+__pycache__/
+*.pyc
+.DS_Store
+nengmao-kebiao-ios*.zip
+nengmao-kebiao-xtool.zip
+install/nengmao-kebiao-ios-installers.zip
+install/nengmao-kebiao-web.zip
+sdks/
+.tools-py/
+install/gh/state.json
+install/gh/shots/
+install/gh/*.log
+
+install/gh/

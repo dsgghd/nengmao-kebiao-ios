@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<title>黑底工业 / Black Industrial</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1536px;height:1024px;overflow:hidden;background:#F2EEE3}
+body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.canvas{width:1536px;height:1024px;position:relative;overflow:hidden;display:flex;flex-direction:column;padding:32px 40px 22px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;position:relative;z-index:2}
+.brand{display:flex;align-items:center;gap:14px;position:relative;z-index:2}
+.brandtext strong{display:block;font-weight:900;letter-spacing:-.04em}
+.brandtext span{display:block;margin-top:3px}
+.weekblock{text-align:right;position:relative;z-index:2}
+.weeklabel{font-weight:800;letter-spacing:.28em}
+.weeknum{font-weight:900;line-height:.78;letter-spacing:-.06em}
+.weekmeta{font-weight:700;margin-top:8px}
+.metaRow{display:flex;align-items:center;gap:10px;position:relative;z-index:2}
+.dot{width:8px;height:8px;flex:0 0 auto}
+.sep{opacity:.35}
+.grid{position:relative;flex:1;min-height:0;display:grid;grid-template-columns:58px repeat(7,1fr);grid-template-rows:46px repeat(11,1fr)}
+.corner,.day,.period,.cell{min-width:0;min-height:0}
+.day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.day b{font-weight:900}
+.day span{font-variant-numeric:tabular-nums}
+.period{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.period b{font-weight:900;font-variant-numeric:tabular-nums}
+.period span{font-variant-numeric:tabular-nums}
+.course{position:relative;z-index:2;display:flex;flex-direction:column;gap:2px;overflow:hidden;min-width:0}
+.course b{font-weight:900;line-height:1.2}
+.course span,.course small{line-height:1.2;overflow:hidden;text-overflow:ellipsis}
+.nowline{display:none;position:absolute;left:0;right:0;height:2px;z-index:3}
+.nowline span{position:absolute;right:0;top:-17px;font-size:9px;font-weight:900;letter-spacing:.14em;padding:2px 5px}
+footer{display:flex;justify-content:space-between;position:relative;z-index:2}
+
+.b{background:#111;color:#F2EEE3}
+.b::before{content:"";position:absolute;left:0;top:0;width:100%;height:10px;background:#E03A2F;z-index:3}
+.b .top{border-bottom:1px solid #4A453D;padding-bottom:18px}
+.b .top::after{content:"";position:absolute;right:-70px;top:-90px;width:360px;height:360px;background:#E03A2F;transform:rotate(45deg);opacity:.10}
+.b .mark{width:52px;height:52px;background:#E03A2F;color:#111;display:grid;place-items:center;font-size:28px;font-weight:900}
+.b .brandtext strong{font-size:29px}
+.b .brandtext span{font-size:12px;color:#A49B8B;letter-spacing:.04em}
+.b .weeklabel{font-size:10px;color:#E03A2F}
+.b .weeknum{font-size:112px;color:transparent;-webkit-text-stroke:2.5px #E03A2F}
+.b .weekmeta{font-size:12px;color:#C9C2B4}
+.b .metaRow{padding:12px 0;font-size:11px;color:#8A8375;letter-spacing:.08em;border-bottom:1px solid #2A2722}
+.b .dot{background:#E03A2F}
+.b .grid{gap:1px;background:#3A3731;border:1px solid #3A3731;margin-top:14px}
+.b .corner,.b .day,.b .period,.b .cell{background:#151515}
+.b .corner{background:#0B0B0B;color:#8A8375;display:grid;place-items:center;font-size:10px;font-weight:800;letter-spacing:.12em}
+.b .day b{font-size:15px;letter-spacing:.04em}
+.b .day span{font-size:10px;color:#8A8375}
+.b .day.today{background:#E03A2F;color:#111}
+.b .day.today span{color:rgba(17,17,17,.72)}
+.b .period b{font-size:15px;color:#F2EEE3}
+.b .period span{font-size:9px;color:#8A8375}
+.b .cell.today{background:#1C1514}
+.b .course{margin:4px;padding:8px 9px;background:#181818;border:1px solid #4A453D;border-top:3px solid #E03A2F}
+.b .course b{font-size:15px;color:#F2EEE3}
+.b .course span{font-size:11px;color:#C9C2B4}
+.b .course small{font-size:9px;color:#8A8375}
+.b .nowline{display:block;background:#E03A2F}
+.b .nowline span{background:#E03A2F;color:#111}
+.b footer{margin-top:12px;padding-top:10px;border-top:1px solid #3A3731;font-size:10px;font-weight:700;letter-spacing:.16em;color:#8A8375}
+</style>
+</head><body>
+<div class="canvas b">
+  <header class="top">
+    <div class="brand">
+      <div class="mark">课</div>
+      <div class="brandtext"><strong>课程表</strong><span>2026-2027学年第一学期</span></div>
+    </div>
+    <div class="weekblock">
+      <div class="weeklabel">WEEK</div>
+      <div class="weeknum">12</div>
+      <div class="weekmeta">第 12 周 · 11.16 – 11.22</div>
+    </div>
+  </header>
+  <div class="metaRow">
+    <span class="dot"></span><span>示例同学 · 汽制2603</span>
+    <span class="sep">/</span><span>今天 · 周一</span>
+    <span class="sep">/</span><span>数据只保存在本机</span>
+  </div>
+  <div class="grid">
+<div class="corner">节次</div>
+<div class="day today" style="grid-column:2;grid-row:1"><b>周一</b><span>11.16</span></div>
+<div class="day" style="grid-column:3;grid-row:1"><b>周二</b><span>11.17</span></div>
+<div class="day" style="grid-column:4;grid-row:1"><b>周三</b><span>11.18</span></div>
+<div class="day" style="grid-column:5;grid-row:1"><b>周四</b><span>11.19</span></div>
+<div class="day" style="grid-column:6;grid-row:1"><b>周五</b><span>11.20</span></div>
+<div class="day" style="grid-column:7;grid-row:1"><b>周六</b><span>11.21</span></div>
+<div class="day" style="grid-column:8;grid-row:1"><b>周日</b><span>11.22</span></div>
+<div class="period" style="grid-column:1;grid-row:2"><b>1</b><span>08:00</span></div>
+<div class="period" style="grid-column:1;grid-row:3"><b>2</b><span>08:55</span></div>
+<div class="period" style="grid-column:1;grid-row:4"><b>3</b><span>10:00</span></div>
+<div class="period" style="grid-column:1;grid-row:5"><b>4</b><span>10:55</span></div>
+<div class="period" style="grid-column:1;grid-row:6"><b>5</b><span>14:00</span></div>
+<div class="period" style="grid-column:1;grid-row:7"><b>6</b><span>14:55</span></div>
+<div class="period" style="grid-column:1;grid-row:8"><b>7</b><span>16:00</span></div>
+<div class="period" style="grid-column:1;grid-row:9"><b>8</b><span>16:55</span></div>
+<div class="period" style="grid-column:1;grid-row:10"><b>9</b><span>19:00</span></div>
+<div class="period" style="grid-column:1;grid-row:11"><b>10</b><span>19:55</span></div>
+<div class="period" style="grid-column:1;grid-row:12"><b>11</b><span>20:50</span></div>
+<div class="cell today" style="grid-column:2;grid-row:2"></div>
+<div class="cell" style="grid-column:3;grid-row:2"></div>
+<div class="cell" style="grid-column:4;grid-row:2"></div>
+<div class="cell" style="grid-column:5;grid-row:2"></div>
+<div class="cell" style="grid-column:6;grid-row:2"></div>
+<div class="cell" style="grid-column:7;grid-row:2"></div>
+<div class="cell" style="grid-column:8;grid-row:2"></div>
+<div class="cell today" style="grid-column:2;grid-row:3"></div>
+<div class="cell" style="grid-column:3;grid-row:3"></div>
+<div class="cell" style="grid-column:4;grid-row:3"></div>
+<div class="cell" style="grid-column:5;grid-row:3"></div>
+<div class="cell" style="grid-column:6;grid-row:3"></div>
+<div class="cell" style="grid-column:7;grid-row:3"></div>
+<div class="cell" style="grid-column:8;grid-row:3"></div>
+<div class="cell today" style="grid-column:2;grid-row:4"></div>
+<div class="cell" style="grid-column:3;grid-row:4"></div>
+<div class="cell" style="grid-column:4;grid-row:4"></div>
+<div class="cell" style="grid-column:5;grid-row:4"></div>
+<div class="cell" style="grid-column:6;grid-row:4"></div>
+<div class="cell" style="grid-column:7;grid-row:4"></div>
+<div class="cell" style="grid-column:8;grid-row:4"></div>
+<div class="cell today" style="grid-column:2;grid-row:5"></div>
+<div class="cell" style="grid-column:3;grid-row:5"></div>
+<div class="cell" style="grid-column:4;grid-row:5"></div>
+<div class="cell" style="grid-column:5;grid-row:5"></div>
+<div class="cell" style="grid-column:6;grid-row:5"></div>
+<div class="cell" style="grid-column:7;grid-row:5"></div>
+<div class="cell" style="grid-column:8;grid-row:5"></div>
+<div class="cell today" style="grid-column:2;grid-row:6"></div>
+<div class="cell" style="grid-column:3;grid-row:6"></div>
+<div class="cell" style="grid-column:4;grid-row:6"></div>
+<div class="cell" style="grid-column:5;grid-row:6"></div>
+<div class="cell" style="grid-column:6;grid-row:6"></div>
+<div class="cell" style="grid-column:7;grid-row:6"></div>
+<div class="cell" style="grid-column:8;grid-row:6"></div>
+<div class="cell today" style="grid-column:2;grid-row:7"></div>
+<div class="cell" style="grid-column:3;grid-row:7"></div>
+<div class="cell" style="grid-column:4;grid-row:7"></div>
+<div class="cell" style="grid-column:5;grid-row:7"></div>
+<div class="cell" style="grid-column:6;grid-row:7"></div>
+<div class="cell" style="grid-column:7;grid-row:7"></div>
+<div class="cell" style="grid-column:8;grid-row:7"></div>
+<div class="cell today" style="grid-column:2;grid-row:8"></div>
+<div class="cell" style="grid-column:3;grid-row:8"></div>
+<div class="cell" style="grid-column:4;grid-row:8"></div>
+<div class="cell" style="grid-column:5;grid-row:8"></div>
+<div class="cell" style="grid-column:6;grid-row:8"></div>
+<div class="cell" style="grid-column:7;grid-row:8"></div>
+<div class="cell" style="grid-column:8;grid-row:8"></div>
+<div class="cell today" style="grid-column:2;grid-row:9"></div>
+<div class="cell" style="grid-column:3;grid-row:9"></div>
+<div class="cell" style="grid-column:4;grid-row:9"></div>
+<div class="cell" style="grid-column:5;grid-row:9"></div>
+<div class="cell" style="grid-column:6;grid-row:9"></div>
+<div class="cell" style="grid-column:7;grid-row:9"></div>
+<div class="cell" style="grid-column:8;grid-row:9"></div>
+<div class="cell today" style="grid-column:2;grid-row:10"></div>
+<div class="cell" style="grid-column:3;grid-row:10"></div>
+<div class="cell" style="grid-column:4;grid-row:10"></div>
+<div class="cell" style="grid-column:5;grid-row:10"></div>
+<div class="cell" style="grid-column:6;grid-row:10"></div>
+<div class="cell" style="grid-column:7;grid-row:10"></div>
+<div class="cell" style="grid-column:8;grid-row:10"></div>
+<div class="cell today" style="grid-column:2;grid-row:11"></div>
+<div class="cell" style="grid-column:3;grid-row:11"></div>
+<div class="cell" style="grid-column:4;grid-row:11"></div>
+<div class="cell" style="grid-column:5;grid-row:11"></div>
+<div class="cell" style="grid-column:6;grid-row:11"></div>
+<div class="cell" style="grid-column:7;grid-row:11"></div>
+<div class="cell" style="grid-column:8;grid-row:11"></div>
+<div class="cell today" style="grid-column:2;grid-row:12"></div>
+<div class="cell" style="grid-column:3;grid-row:12"></div>
+<div class="cell" style="grid-column:4;grid-row:12"></div>
+<div class="cell" style="grid-column:5;grid-row:12"></div>
+<div class="cell" style="grid-column:6;grid-row:12"></div>
+<div class="cell" style="grid-column:7;grid-row:12"></div>
+<div class="cell" style="grid-column:8;grid-row:12"></div>
+<div class="course" style="grid-column:2;grid-row:2 / span 2;--c:#1F6F5C"><b>高等数学</b><span>崇文楼C202</span><small>耿春梅</small></div>
+<div class="course" style="grid-column:2;grid-row:4 / span 2;--c:#8A5A44"><b>程序设计基础</b><span>崇文楼A206</span><small>赵改连</small></div>
+<div class="course tilt-l" style="grid-column:3;grid-row:2 / span 2;--c:#2E4F7A"><b>大学英语</b><span>崇文楼A113</span><small>夏小维</small></div>
+<div class="course tilt-r" style="grid-column:3;grid-row:4 / span 2;--c:#B07A24"><b>机械制图</b><span>崇思楼B315</span><small>张歆伊</small></div>
+<div class="course" style="grid-column:4;grid-row:2 / span 2;--c:#8A5A44"><b>程序设计基础</b><span>崇文楼A206</span><small>赵改连</small></div>
+<div class="course accent-teal" style="grid-column:4;grid-row:6 / span 2;--c:#1F6F5C"><b>思想道德与法治</b><span>知行楼C201</span><small>郭双燕</small></div>
+<div class="course accent-red" style="grid-column:4;grid-row:10 / span 3;--c:#B07A24"><b>军事理论</b><span>崇思楼A312</span><small>冯晨迪</small></div>
+<div class="course tilt-r" style="grid-column:5;grid-row:2 / span 2;--c:#B07A24"><b>机械制图</b><span>崇思楼B315</span><small>张歆伊</small></div>
+<div class="course tilt-l" style="grid-column:5;grid-row:4 / span 2;--c:#2E4F7A"><b>大学英语</b><span>崇文楼A113</span><small>夏小维</small></div>
+<div class="course accent-mustard" style="grid-column:6;grid-row:4 / span 2;--c:#3E6B34"><b>大学体育</b><span>田径场</span><small>陈婷婷</small></div>
+<div class="course" style="grid-column:6;grid-row:8 / span 2;--c:#2E4F7A"><b>人工智能基础</b><span>图书馆分室3</span><small>赵婷婷</small></div>
+<div class="nowline" style="top:57%"><span>NOW 15:40</span></div>
+</div>
+  <footer><span>WEEK 12 / 2026-2027</span><span>课程表 · 风格稿</span></footer>
+</div>
+</body></html>

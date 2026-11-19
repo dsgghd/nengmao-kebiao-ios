@@ -1,0 +1,13 @@
+perl: warning: Setting locale failed.
+perl: warning: Please check that your locale settings:
+	LANGUAGE = (unset),
+	LC_ALL = (unset),
+	LANG = "en_US.UTF-8"
+    are supported and installed on your system.
+perl: warning: Falling back to the standard locale ("C").
+debconf: delaying package configuration, since apt-utils is not installed
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  1  747M    1 9423k    0     0  7057k      0  0:01:48  0:00:01  0:01:47 7053k 10  747M   10 81.6M    0     0  34.9M      0  0:00:21  0:00:02  0:00:19 34.9M 20  747M   20  154M    0     0  46.1M      0  0:00:16  0:00:03  0:00:13 46.1M 30  747M   30  226M    0     0  52.2M      0  0:00:14  0:00:04  0:00:10 52.2M 39  747M   39  298M    0     0  56.0M      0  0:00:13  0:00:05  0:00:08 60.0M 49  747M   49  371M    0     0  58.6M      0  0:00:12  0:00:06  0:00:06 72.4M 59  747M   59  443M    0     0  60.4M      0  0:00:12  0:00:07  0:00:05 72.4M 69  747M   69  516M    0     0  61.9M      0  0:00:12  0:00:08  0:00:04 72.4M 78  747M   78  588M    0     0  63.0M      0  0:00:11  0:00:09  0:00:02 72.4M 88  747M   88  661M    0     0  63.9M      0  0:00:11  0:00:10  0:00:01 72.4M 97  747M   97  732M    0     0  64.4M      0  0:00:11  0:00:11 --:--:-- 71.8M100  747M  100  747M    0     0  63.4M      0  0:00:11  0:00:11 --:--:-- 68.2M
+Error: Operation unsupported
+Error: Operation unsupported

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F2EEE3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="能猫课表">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="能猫课表：导入学校课程表 xlsx，按周查看今天上什么课。数据只保存在本机。">
+<title>能猫课表 · 今天上什么</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="theme-c3.css">
+</head>
+<body>
+
+<div id="app" class="app" hidden>
+  <header class="masthead">
+    <div class="brand-block">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">课</div>
+        <div class="brand-copy">
+          <strong>能猫课表</strong>
+          <span id="semesterLabel">—</span>
+        </div>
+      </div>
+      <div class="head-meta">
+        <button class="iconbtn" id="importBtn" type="button">导入</button>
+        <button class="iconbtn" id="settingsBtn" type="button">设置</button>
+      </div>
+    </div>
+    <div class="week-block" id="headerWeekBlock">
+      <div class="weeklabel">WEEK</div>
+      <div class="weeknum" id="headerWeekNum">12</div>
+      <div class="weekmeta" id="headerWeekMeta">第 12 周 · 11.16 – 11.22</div>
+    </div>
+  </header>
+
+  <div class="weekbar">
+    <button class="arrow" id="prevWeek" type="button" aria-label="上一周">‹</button>
+    <div class="week-chips" id="weekChips" role="tablist" aria-label="选择周次"></div>
+    <button class="arrow" id="nextWeek" type="button" aria-label="下一周">›</button>
+  </div>
+
+  <div class="weekinfo" id="weekInfo"></div>
+
+  <nav class="tabbar" id="tabbar" aria-label="视图切换">
+    <button type="button" data-view="today" class="active">今日</button>
+    <button type="button" data-view="week">周表</button>
+    <button type="button" data-view="courses">课程</button>
+  </nav>
+
+  <main class="main">
+    <section id="todayView" class="view" aria-label="今日课程"></section>
+    <section id="weekView" class="view" aria-label="周课程表" hidden></section>
+    <section id="coursesView" class="view" aria-label="课程列表" hidden></section>
+  </main>
+</div>
+
+<div id="welcome" class="welcome">
+  <div class="welcome-poster">
+    <div class="poster-rule" aria-hidden="true"></div>
+    <div class="poster-index" aria-hidden="true">01</div>
+    <p class="poster-kicker">TIMETABLE / 能猫课表</p>
+    <h1>把课表<br>变成<br><em>今天。</em></h1>
+    <p class="poster-lede">导入学校导出的 .xlsx，自动识别课程、周次、教室。按周查看，手机和电脑都清楚。数据只保存在本机。</p>
+    <div class="welcome-actions">
+      <button class="btn primary" id="welcomeImport" type="button">导入课表</button>
+      <button class="btn ghost" id="welcomeDemo" type="button">载入示例</button>
+      <button class="btn ghost" id="welcomeRestore" type="button">导入数据</button>
+    </div>
+    <p class="poster-note">支持“星期 × 节次”网格课表，也支持一行一门课的列表课表。</p>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toast" class="toast" role="status" hidden></div>
+<input type="file" id="fileInput" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="parser.js"></script>
+<script src="schools-seed.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

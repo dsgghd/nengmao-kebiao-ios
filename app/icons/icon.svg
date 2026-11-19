@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#F2EEE3"/>
+  <polygon points="0,369 369,0 461,0 0,461" fill="#D33228"/>
+  <g stroke="#141414" stroke-width="4">
+    <line x1="171" y1="18" x2="171" y2="494"/>
+    <line x1="341" y1="18" x2="341" y2="494"/>
+    <line x1="18" y1="171" x2="494" y2="171"/>
+    <line x1="18" y1="341" x2="494" y2="341"/>
+  </g>
+  <rect x="18" y="18" width="476" height="476" fill="none" stroke="#141414" stroke-width="18"/>
+  <rect x="51" y="51" width="225" height="225" fill="#141414"/>
+  <text x="163" y="227" fill="#FFFDF6" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="150" font-weight="900" text-anchor="middle">课</text>
+  <text x="410" y="464" fill="#141414" font-family="Arial, sans-serif" font-size="128" font-weight="900" text-anchor="end">12</text>
+</svg>

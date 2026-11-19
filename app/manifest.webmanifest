@@ -1,0 +1,26 @@
+{
+  "name": "能猫课表",
+  "short_name": "能猫课表",
+  "description": "导入学校课程表 xlsx，按周查看今天上什么课。数据只保存在本机。",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F2EEE3",
+  "theme_color": "#F2EEE3",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+# Windows 上装 tree-sitter 的本地目录，不要提交
+.tools-py/
+# Xcode / 编译产物
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+__pycache__/

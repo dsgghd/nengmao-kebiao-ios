@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<title>C3-G4-T3 / 网格内毛玻璃装饰</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1536px;height:1024px;overflow:hidden;background:#F2EEE3}
+body{font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.canvas{width:1536px;height:1024px;position:relative;overflow:hidden;display:flex;flex-direction:column;padding:32px 40px 22px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;position:relative;z-index:2}
+.brand{display:flex;align-items:center;gap:14px;position:relative;z-index:2}
+.brandtext strong{display:block;font-weight:900;letter-spacing:-.04em}
+.brandtext span{display:block;margin-top:3px}
+.weekblock{text-align:right;position:relative;z-index:2}
+.weeklabel{font-weight:800;letter-spacing:.28em}
+.weeknum{font-weight:900;line-height:.78;letter-spacing:-.06em}
+.weekmeta{font-weight:700;margin-top:8px}
+.metaRow{display:flex;align-items:center;gap:10px;position:relative;z-index:2}
+.dot{width:8px;height:8px;flex:0 0 auto}
+.sep{opacity:.35}
+.grid{position:relative;flex:1;min-height:0;display:grid;grid-template-columns:58px repeat(7,1fr);grid-template-rows:46px repeat(11,1fr);margin-top:18px}
+.periodband,.dayband{position:relative;z-index:0}
+.corner,.day,.period{position:relative;z-index:3}
+.day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.day b{font-weight:900}
+.day span{font-variant-numeric:tabular-nums}
+.period{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.period b{font-weight:900;font-variant-numeric:tabular-nums}
+.period span{font-variant-numeric:tabular-nums}
+.course{position:relative;z-index:2;display:flex;flex-direction:column;gap:3px;overflow:hidden;min-width:0;border:0;box-shadow:none}
+.course b{font-weight:900;line-height:1.2}
+.course span,.course small{line-height:1.2;overflow:hidden;text-overflow:ellipsis}
+footer{display:flex;justify-content:space-between;position:relative;z-index:2}
+.fill-teal{background:#1F6F5C;color:#fff}
+.fill-teal span,.fill-teal small{color:rgba(255,255,255,.76)}
+.fill-pale-teal{background:#D9E6E0;color:#141414}
+.fill-pale-teal span,.fill-pale-teal small{color:rgba(20,20,20,.62)}
+.fill-black{background:#141414;color:#F2EEE3}
+.fill-black span,.fill-black small{color:rgba(242,238,227,.72)}
+.fill-mustard{background:#C9912B;color:#141414}
+.fill-mustard span,.fill-mustard small{color:rgba(20,20,20,.68)}
+.fill-red{background:#D33228;color:#fff}
+.fill-red span,.fill-red small{color:rgba(255,255,255,.76)}
+.fill-pale-red{background:#F3D9D4;color:#141414}
+.fill-pale-red span,.fill-pale-red small{color:rgba(20,20,20,.62)}
+.fill-pale-mustard{background:#EFE0C2;color:#141414}
+.fill-pale-mustard span,.fill-pale-mustard small{color:rgba(20,20,20,.62)}
+
+.c3{background:#F2EEE3;color:#141414}
+.c3::before{content:"";position:absolute;left:0;top:0;width:12px;height:100%;background:#D33228;z-index:1}
+.c3::after{content:"";position:absolute;right:0;top:0;width:420px;height:180px;background:#C9912B;clip-path:polygon(100% 0,100% 100%,0 0);z-index:0}
+.c3 .top{padding-bottom:18px;align-items:stretch}
+.c3 .brand{background:#141414;color:#F2EEE3;padding:16px 22px;gap:16px}
+.c3 .mark{width:52px;height:52px;background:#D33228;color:#fff;display:grid;place-items:center;font-size:28px;font-weight:900}
+.c3 .brandtext strong{font-size:30px}
+.c3 .brandtext span{font-size:11px;color:rgba(242,238,227,.72)}
+.c3 .weekblock{background:#D33228;color:#fff;padding:16px 24px 14px;min-width:300px}
+.c3 .weeklabel{font-size:10px;color:rgba(255,255,255,.82)}
+.c3 .weeknum{font-size:116px;color:#fff}
+.c3 .weekmeta{font-size:11px;color:rgba(255,255,255,.86)}
+.c3 .metaRow{padding:10px 0;font-size:11px;color:#4B463C;letter-spacing:.02em}
+.c3 .dot{background:#D33228}
+.c3 .corner{background:#141414;color:#F2EEE3;display:grid;place-items:center;font-size:10px;font-weight:800}
+.c3 .day b{font-size:15px}
+.c3 .day span{font-size:10px;color:#7D7565}
+.c3 .day.today{background:#D33228;color:#fff}
+.c3 .day.today span{color:rgba(255,255,255,.8)}
+.c3 .period b{font-size:15px}
+.c3 .period span{font-size:9px;color:#7D7565}
+.c3 .p-morning{background:rgba(201,145,43,.07)}
+.c3 .p-afternoon{background:rgba(31,111,92,.065)}
+.c3 .p-evening{background:rgba(20,20,20,.045)}
+.c3 .dayband.alt{background:rgba(20,20,20,.035)}
+.c3 .dayband.today{background:rgba(211,50,40,.09)}
+.c3 .course{margin:7px 8px;padding:10px 12px;border-radius:0}
+.c3 .course b{font-size:15px}
+.c3 .course span{font-size:11px}
+.c3 .course small{font-size:9px}
+.c3 .course.tilt-l{transform:rotate(-1.2deg)}
+.c3 .course.tilt-r{transform:rotate(1.2deg)}
+.c3 footer{margin-top:14px;background:#D33228;color:#fff;padding:10px 14px;font-size:10px;font-weight:800;letter-spacing:.12em}
+
+.c3 .course span,.c3 .course small{color:currentColor;opacity:.8}
+.c3 .course.next{padding-top:24px}
+.c3 .next-tag{position:absolute;top:6px;right:8px;z-index:4;background:#141414;color:#fff;font-size:8px;font-weight:900;letter-spacing:.04em;padding:2px 5px}
+.c3 .metaRow{gap:9px}
+.c3 .time-legend{margin-left:auto;display:flex;align-items:center;gap:13px;font-size:9px;color:#4B463C;letter-spacing:.02em;white-space:nowrap}
+.c3 .time-legend i{display:inline-block;width:8px;height:8px;margin-right:4px;vertical-align:-1px}
+.c3 .tl-next{background:#E03A2F}
+.c3 .tl-soon{background:hsl(38,45%,58%)}
+.c3 .tl-later{background:hsl(168,32%,70%)}
+.c3 .tl-done{background:hsl(0,0%,84%)}
+.c3 .shape-cluster{filter:saturate(.45);opacity:.5}
+.c3 .deco{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;filter:saturate(.38);opacity:.42}
+.c3 .tri-mustard{position:absolute;width:340px;height:340px;background:#C9912B;clip-path:polygon(100% 0,100% 100%,0 100%);right:50px;bottom:80px}
+.c3 .square-red{position:absolute;width:122px;height:122px;border:3px solid #D33228;right:304px;bottom:240px;transform:rotate(10deg)}
+.c3 .dots{position:absolute;right:300px;bottom:380px;display:grid;grid-template-columns:repeat(3,8px);gap:16px}
+.c3 .dots i{width:8px;height:8px;background:#141414;border-radius:50%}
+.c3::after{filter:saturate(.5);opacity:.35}
+
+.c3 .deco{filter:blur(6px) saturate(.5);opacity:.62}
+.c3 .frost{
+  position:absolute;right:-50px;bottom:10px;width:600px;height:680px;z-index:1;pointer-events:none;
+  background:rgba(247,243,234,.07);
+  -webkit-backdrop-filter:blur(10px) saturate(.75);
+  backdrop-filter:blur(10px) saturate(.75);
+  -webkit-mask-image:radial-gradient(ellipse at 55% 55%, #000 38%, transparent 80%);
+  mask-image:radial-gradient(ellipse at 55% 55%, #000 38%, transparent 80%);
+}
+.c3 .frost::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(120deg,rgba(255,255,255,.08),transparent 60%);
+}
+.c3::after{filter:none;opacity:1}
+</style>
+</head><body>
+<div class="canvas c3">
+  <div class="deco"><div class="tri-mustard"></div><div class="square-red"></div><div class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="frost"></div>
+  <header class="top">
+    <div class="brand">
+      <div class="mark">课</div>
+      <div class="brandtext"><strong>课程表</strong><span>2026-2027学年第一学期</span></div>
+    </div>
+    <div class="weekblock">
+      <div class="weeklabel">WEEK</div>
+      <div class="weeknum">12</div>
+      <div class="weekmeta">第 12 周 · 11.16 – 11.22</div>
+    </div>
+  </header>
+  <div class="metaRow">
+    <span class="dot"></span><span>示例同学 · 汽制2603</span>
+    <span class="sep">/</span><span>今天 · 周一</span>
+    <span class="sep">/</span><span>现在 15:40</span>
+    <div class="time-legend">
+  <span><i class="tl-next"></i>下一节</span>
+  <span><i class="tl-soon"></i>今天稍后/明天</span>
+  <span><i class="tl-later"></i>本周后续</span>
+  <span><i class="tl-done"></i>已结束</span>
+</div>
+  </div>
+  <div class="grid">
+<div class="corner">节次</div>
+<div class="day today" style="grid-column:2;grid-row:1"><b>周一</b><span>11.16</span></div>
+<div class="day" style="grid-column:3;grid-row:1"><b>周二</b><span>11.17</span></div>
+<div class="day" style="grid-column:4;grid-row:1"><b>周三</b><span>11.18</span></div>
+<div class="day" style="grid-column:5;grid-row:1"><b>周四</b><span>11.19</span></div>
+<div class="day" style="grid-column:6;grid-row:1"><b>周五</b><span>11.20</span></div>
+<div class="day" style="grid-column:7;grid-row:1"><b>周六</b><span>11.21</span></div>
+<div class="day" style="grid-column:8;grid-row:1"><b>周日</b><span>11.22</span></div>
+<div class="period" style="grid-column:1;grid-row:2"><b>1</b><span>08:00</span></div>
+<div class="period" style="grid-column:1;grid-row:3"><b>2</b><span>08:55</span></div>
+<div class="period" style="grid-column:1;grid-row:4"><b>3</b><span>10:00</span></div>
+<div class="period" style="grid-column:1;grid-row:5"><b>4</b><span>10:55</span></div>
+<div class="period" style="grid-column:1;grid-row:6"><b>5</b><span>14:00</span></div>
+<div class="period" style="grid-column:1;grid-row:7"><b>6</b><span>14:55</span></div>
+<div class="period" style="grid-column:1;grid-row:8"><b>7</b><span>16:00</span></div>
+<div class="period" style="grid-column:1;grid-row:9"><b>8</b><span>16:55</span></div>
+<div class="period" style="grid-column:1;grid-row:10"><b>9</b><span>19:00</span></div>
+<div class="period" style="grid-column:1;grid-row:11"><b>10</b><span>19:55</span></div>
+<div class="period" style="grid-column:1;grid-row:12"><b>11</b><span>20:50</span></div>
+<div class="periodband p-morning" style="grid-column:1/-1;grid-row:2/span 4"></div>
+<div class="periodband p-afternoon" style="grid-column:1/-1;grid-row:6/span 4"></div>
+<div class="periodband p-evening" style="grid-column:1/-1;grid-row:10/span 3"></div>
+<div class="dayband today" style="grid-column:2;grid-row:2/-1"></div>
+<div class="dayband" style="grid-column:3;grid-row:2/-1"></div>
+<div class="dayband alt" style="grid-column:4;grid-row:2/-1"></div>
+<div class="dayband" style="grid-column:5;grid-row:2/-1"></div>
+<div class="dayband alt" style="grid-column:6;grid-row:2/-1"></div>
+<div class="dayband" style="grid-column:7;grid-row:2/-1"></div>
+<div class="dayband alt" style="grid-column:8;grid-row:2/-1"></div>
+<div class="course done" style="grid-column:2;grid-row:2 / span 2;background:hsl(30, 8%, 84%);color:#3A3732"><b>汽车文化</b><span>崇思楼A305</span><small>强爱民</small></div>
+<div class="course done" style="grid-column:2;grid-row:6 / span 2;background:hsl(168, 9%, 84%);color:#3A3732"><b>高等数学</b><span>崇文楼C202</span><small>耿春梅</small></div>
+<div class="course next" style="grid-column:2;grid-row:8 / span 2;background:#E03A2F;color:#FFFFFF"><span class="next-tag">下一节 · 16:00</span><b>实用英语1</b><span>崇文楼A106</span><small>夏小维</small></div>
+<div class="course soon" style="grid-column:3;grid-row:2 / span 2;background:hsl(0, 0%, 62%);color:#FFFFFF"><b>大学英语</b><span>崇文楼A113</span><small>夏小维</small></div>
+<div class="course soon" style="grid-column:3;grid-row:4 / span 2;background:hsl(38, 45%, 58%);color:#141414"><b>机械制图</b><span>崇思楼B315</span><small>张歆伊</small></div>
+<div class="course later" style="grid-column:4;grid-row:2 / span 2;background:hsl(168, 32%, 70%);color:#141414"><b>程序设计基础</b><span>崇文楼A206</span><small>赵改连</small></div>
+<div class="course later" style="grid-column:4;grid-row:6 / span 2;background:hsl(4, 36%, 72%);color:#141414"><b>思想道德与法治</b><span>知行楼C201</span><small>郭双燕</small></div>
+<div class="course later" style="grid-column:4;grid-row:10 / span 3;background:hsl(38, 28%, 76%);color:#141414"><b>军事理论</b><span>崇思楼A312</span><small>冯晨迪</small></div>
+<div class="course later" style="grid-column:5;grid-row:2 / span 2;background:hsl(38, 22%, 78%);color:#141414"><b>机械制图</b><span>崇思楼B315</span><small>张歆伊</small></div>
+<div class="course later" style="grid-column:5;grid-row:4 / span 2;background:hsl(0, 0%, 78%);color:#141414"><b>大学英语</b><span>崇文楼A113</span><small>夏小维</small></div>
+<div class="course far" style="grid-column:6;grid-row:4 / span 2;background:hsl(150, 20%, 80%);color:#141414"><b>大学体育</b><span>田径场</span><small>陈婷婷</small></div>
+<div class="course far" style="grid-column:6;grid-row:8 / span 2;background:hsl(168, 16%, 82%);color:#141414"><b>人工智能基础</b><span>图书馆分室3</span><small>赵婷婷</small></div>
+</div>
+  <footer><span>WEEK 12 / 2026-2027</span><span>课程表 · 时间饱和度稿</span></footer>
+</div>
+</body></html>

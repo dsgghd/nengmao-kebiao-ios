@@ -1,0 +1,19 @@
+version: 1
+
+# 与 ios-build/project.yml 里的 PRODUCT_BUNDLE_IDENTIFIER 保持一致
+bundleID: com.kebiao.app.ios
+
+# 自定义 Info.plist：ATS 那两条（WebContent / LocalNetworking）必须有，
+# 否则校内 http 教务页和本地 127.0.0.1 服务都会被拦。
+# 这个文件里的值全部写死，不用 Xcode 的 $(VAR) 占位符。
+infoPath: Info.plist
+
+# 1024×1024、无 alpha（App Store 也接受这一张）
+iconPath: ../../assets/brand/logo-nengmao-grin-1024.png
+
+# 这些会被整棵复制进 .app 根目录（xtool 内部用 FileManager.copyItem，
+# 目录会保留结构）。我们的网页靠相对路径加载 app.css / icons/xx.png，
+# 所以必须整目录搬，不能拍平。
+resources:
+  - ../../ios-build/NengmaoKeBiao/Web
+  - ../../ios-build/NengmaoKeBiao/Scripts
