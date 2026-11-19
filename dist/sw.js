@@ -1,5 +1,5 @@
 /* 课程表 PWA 离线缓存 */
-var CACHE = 'timetable-v43';
+var CACHE = 'timetable-v46';
 var ASSETS = [
   './',
   './index.html',
