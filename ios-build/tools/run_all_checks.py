@@ -44,6 +44,7 @@ def main() -> int:
         steps.append(("网页层测试 · Chromium/Edge", ["tools/web_layer_tests.py"], True))
         steps.append(("网页层测试 · WebKit（Safari 同族）", ["tools/webkit_tests.py"], False))
         steps.append(("端到端 · 注入层 + 真实 EAMS 解析脚本", ["tools/import_e2e_tests.py"], False))
+        steps.append(("日历导出 · .ics（真 WebKit，RFC 5545）", ["tools/ics_export_test.py"], False))
 
     ok = True
     for label, args, required in steps:

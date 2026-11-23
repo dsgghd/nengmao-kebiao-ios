@@ -187,7 +187,7 @@
   function parseTeacher(raw) {
     var s = clean(raw);
     if (!s) return '';
-    // 只去掉最外层一对括号，保留“陈婷婷(兼职)”这类内部括号
+    // 只去掉最外层一对括号，保留“王老师(兼职)”这类内部括号
     s = s.replace(/^\(\s*/, '').replace(/\s*\)$/, '');
     return s.trim();
   }

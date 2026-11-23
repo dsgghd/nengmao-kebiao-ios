@@ -1,4 +1,4 @@
-// AppleStubs —— 只为“在 Windows 上做类型检查”而存在的假框架。
+﻿// AppleStubs —— 只为“在 Windows 上做类型检查”而存在的假框架。
 //
 // 用途：本机没有 UIKit/WebKit/Network/UserNotifications/Security，但 Swift 编译器是真的。
 // 把这些框架里**本工程用到的** API 按真实签名写成桩，就能让 swiftc 对 App 源码做类型检查，
@@ -35,7 +35,7 @@ public final class TCookie {
     public let isSecure: Bool
     public let isHTTPOnly: Bool
     public let version: Int
-    public let expires: Date?
+    public let expiresDate: Date?
 
     public init?(properties: [HTTPCookiePropertyKey: Any]) {
         guard let name = properties[.name] as? String,
@@ -48,7 +48,7 @@ public final class TCookie {
         self.isSecure = (properties[.secure] as? String) == "TRUE"
         self.isHTTPOnly = (properties[HTTPCookiePropertyKey(rawValue: "HttpOnly")] as? String) == "TRUE"
         self.version = properties[.version] as? Int ?? 0
-        self.expires = properties[.expires] as? Date
+        self.expiresDate = properties[.expires] as? Date
     }
 }
 

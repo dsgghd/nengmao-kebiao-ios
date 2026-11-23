@@ -168,7 +168,7 @@ for (var i = 0; i < srcs.length; i++) {
 
 
 def test_http_mirror(snippet: str) -> None:
-    seed = {"tt.settings.v1": '{"school":"扬州职业技术大学"}', "tt.data.v1": "[]"}
+    seed = {"tt.settings.v1": '{"school":"示例大学"}', "tt.data.v1": "[]"}
     shim = snippet.replace("__TT_STORE_SEED__", json.dumps(seed, ensure_ascii=False))
     pre = """
 try { localStorage.clear(); } catch (e) {}
@@ -178,7 +178,7 @@ try { localStorage.setItem('tt.data.v1', 'PRESERVED'); } catch (e) {}
 function lastStore(){ for (var i = window.__msgs.length - 1; i >= 0; i--) { if (window.__msgs[i][0] === 'store') return window.__msgs[i][1]; } return null; }
 function storeMsgs(){ return window.__msgs.filter(function(m){ return m[0] === 'store'; }); }
 ok('http:seeded-count', window.__ttStoreSeeded === 1, window.__ttStoreSeeded);
-ok('http:seed-filled-missing', localStorage.getItem('tt.settings.v1') === '{"school":"扬州职业技术大学"}', localStorage.getItem('tt.settings.v1'));
+ok('http:seed-filled-missing', localStorage.getItem('tt.settings.v1') === '{"school":"示例大学"}', localStorage.getItem('tt.settings.v1'));
 ok('http:existing-kept', localStorage.getItem('tt.data.v1') === 'PRESERVED', localStorage.getItem('tt.data.v1'));
 
 var before = storeMsgs().length;
@@ -248,10 +248,10 @@ def test_main_bridge(snippet: str) -> None:
     body = r"""
 ok('bridge:android-present', !!window.AndroidBridge, typeof window.AndroidBridge);
 var b = window.AndroidBridge;
-b.startAutoImport('https://jw.example.edu/login', '扬州职业技术大学', 'EAMS');
+b.startAutoImport('https://jw.example.edu/login', '示例大学', 'EAMS');
 var m = window.__msgs[window.__msgs.length - 1];
 ok('bridge:auto', m && m[0] === 'tt' && m[1].t === 'auto' && m[1].url === 'https://jw.example.edu/login'
-   && m[1].name === '扬州职业技术大学' && m[1].sys === 'EAMS', m && m[1]);
+   && m[1].name === '示例大学' && m[1].sys === 'EAMS', m && m[1]);
 
 b.openExternal('https://example.com/a?b=1');
 m = window.__msgs[window.__msgs.length - 1];

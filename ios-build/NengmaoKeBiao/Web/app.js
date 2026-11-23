@@ -11,8 +11,8 @@
   };
 
   var APK_FILE = 'nengmao-kebiao.apk';
-  var APK_VERSION = '5.0';
-  var APK_SIZE = '875 KB';
+  var APK_VERSION = '6.0.1';
+  var APK_SIZE = '899 KB';
   var UA = navigator.userAgent;
   var IS_ANDROID_APP = !!(window.AndroidBridge && window.AndroidBridge.startAutoImport);
   var IS_WECHAT = /MicroMessenger/i.test(UA);
@@ -20,8 +20,8 @@
 
   var PRESETS = [
     {
-      id: 'yzpc-2026-1',
-      school: '扬州职业技术大学',
+      id: 'demo-2026-1',
+      school: '示例大学',
       semester: '2026-2027学年第一学期',
       week1: '2026-08-31',
       maxWeek: 20,
@@ -91,13 +91,15 @@
 
   function defaultSettings() {
     return {
-      school: '扬州职业技术大学',
+      school: '示例大学',
       semester: '2026-2027学年第一学期',
       week1: '2026-08-31',
       maxWeek: 20,
       periods: DEFAULT_PERIODS.map(function (p) { return { start: p[0], end: p[1] }; }),
       student: { name: '', id: '', className: '' },
-      reminderDefault: 15
+      reminderDefault: 15,
+      sync: { enabled: true, weekday: 1, time: '07:00', keepAlive: true, lastAt: '', lastOk: '', lastNote: '' },
+      autoImport: null
     };
   }
 
@@ -296,8 +298,12 @@
       if (rec.day == null || !rec.startPeriod) return;
       for (var w = currentWeek; w <= endWeek; w++) {
         if (rec.weeks && rec.weeks.length && rec.weeks.indexOf(w) < 0) continue;
-        var date = dateForWeekDay(w, rec.day);
-        var start = combine(date, periodStart(rec.startPeriod));
+        var adj = adjustmentFor(rec.id, w);
+        if (adj && adj.cancel) continue;
+        var day = adj ? adj.day : rec.day;
+        var startPeriod = adj ? adj.period : rec.startPeriod;
+        var date = dateForWeekDay(w, day);
+        var start = combine(date, periodStart(startPeriod));
         if (!start || start <= now) continue;
         if (!best || start < best.start) {
           best = { id: rec.id, week: w, start: start };
@@ -381,7 +387,11 @@
       var weeks = rec.weeks && rec.weeks.length ? rec.weeks : rangeWeeks(currentWeek, maxWeek);
       weeks.forEach(function (w) {
         if (w < currentWeek) return;
-        var start = combine(dateForWeekDay(w, rec.day), periodStart(rec.startPeriod));
+        var adj = adjustmentFor(rec.id, w);
+        if (adj && adj.cancel) return;
+        var day = adj ? adj.day : rec.day;
+        var startPeriod = adj ? adj.period : rec.startPeriod;
+        var start = combine(dateForWeekDay(w, day), periodStart(startPeriod));
         if (!start || start <= now) return;
         var at = start.getTime() - lead * 60000;
         if (at <= now.getTime() || at > limit) return;
@@ -389,6 +399,7 @@
         var place = [rec.room, rec.campus].filter(Boolean).join(' ');
         var leadLabel = lead >= 60 ? Math.round(lead / 60) + ' 小时' : lead + ' 分钟';
         var body = leadLabel + '后上课';
+        if (adj) body += '（本周调课）';
         if (place) body += ' · ' + place;
         if (note && note.text) body += ' · ' + note.text;
         out.push({
@@ -457,9 +468,37 @@
     state.settings.maxWeek = clamp(parseInt(state.settings.maxWeek, 10) || 20, 1, 30);
     var reminderDefault = parseInt(state.settings.reminderDefault, 10);
     state.settings.reminderDefault = REMINDER_OPTIONS.indexOf(reminderDefault) >= 0 ? reminderDefault : 15;
+    state.settings.sync = Object.assign(
+      { enabled: true, weekday: 1, time: '07:00', keepAlive: true, lastAt: '', lastOk: '', lastNote: '' },
+      state.settings.sync || {}
+    );
+    state.settings.autoImport = state.settings.autoImport || null;
 
     state.notes = loadNotes();
     state.data = readJSON(STORAGE.data);
+    // 老版本把示例课表写进了本机缓存；载入时统一归一成公开的示例身份，不保留任何旧值
+    (function tidyDemoIdentity() {
+      var d = state.data, st = state.settings, dirty = false;
+      if (d && d.meta && d.meta.fileName === '示例课表') {
+        if (d.meta.className && d.meta.className !== '默认班级') { d.meta.className = '默认班级'; dirty = true; }
+        if (d.meta.studentName && d.meta.studentName !== '示例同学') { d.meta.studentName = '示例同学'; dirty = true; }
+      }
+      if (st && st.student && st.student.className && st.student.className !== '默认班级'
+          && d && d.meta && d.meta.fileName === '示例课表') {
+        st.student.className = '默认班级'; dirty = true;
+      }
+      // 设置里可能残留旧版本的默认学校：没导入过真实课表时统一归一
+      if (st && !st.schema) {
+        var untouched = !d || !d.blocks || !d.blocks.length || (d.meta && d.meta.fileName === '示例课表');
+        if (untouched) {
+          if (st.school && st.school !== '示例大学' && st.school !== '通用') { st.school = '示例大学'; dirty = true; }
+          if (st.student && st.student.name && st.student.name !== '示例同学') { st.student.name = '示例同学'; dirty = true; }
+        }
+        st.schema = 1; dirty = true;
+      }
+      if (dirty) { writeJSON(STORAGE.data, d); writeJSON(STORAGE.settings, st); }
+    })();
+
     state.week = getCurrentWeek();
     state.day = todayWeekday();
     state.view = 'today';
@@ -485,9 +524,25 @@
       showWelcome();
     }
 
+    if (IS_ANDROID_APP) {
+      scheduleNativeSync();
+      maybeAutoSync();
+    }
+
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       navigator.serviceWorker.register('sw.js').catch(function () {});
     }
+  }
+
+  function maybeAutoSync() {
+    if (!state.data || !state.data.blocks || !state.data.blocks.length) return;
+    var cfg = state.settings.sync;
+    if (!cfg || !cfg.enabled) return;
+    if (!state.settings.autoImport) return;
+    if (!syncOverdue()) return;
+    var attempt = cfg.lastAttempt ? new Date(cfg.lastAttempt) : null;
+    if (attempt && Date.now() - attempt.getTime() < 20 * 3600000) return;
+    setTimeout(function () { startSync('sync'); }, 1500);
   }
 
   function isView(v) {
@@ -526,6 +581,11 @@
     });
 
     $('#weekInfo').addEventListener('click', function (e) {
+      var syncChip = e.target.closest('#syncOpen');
+      if (syncChip) {
+        openSettings(syncChip);
+        return;
+      }
       if (e.target.closest('#backThisWeek')) {
         state.week = getCurrentWeek();
         state.day = todayWeekday();
@@ -549,6 +609,14 @@
     });
 
     $('#weekView').addEventListener('click', function (e) {
+      var undo = e.target.closest('[data-undo-adj]');
+      if (undo) {
+        clearAdjustment(undo.dataset.undoAdj, state.week);
+        renderAll();
+        syncPhoneReminders();
+        toast('已恢复本周原课表');
+        return;
+      }
       var block = e.target.closest('[data-block]');
       if (block) openBlockDetail(block.dataset.block, block);
     });
@@ -1126,6 +1194,16 @@
       html += '<span class="sep">/</span><span class="wi-status">非本周</span>' +
         '<button type="button" class="week-back" id="backThisWeek">回到本周</button>';
     }
+    var cfg = state.settings.sync || {};
+    if (state.data && state.data.blocks && state.data.blocks.length && cfg.enabled !== false) {
+      var overdue = syncOverdue();
+      var hint = !cfg.lastAt ? '还没同步过'
+        : (overdue ? '距上次同步已超过一周' : '上次同步 ' + fmtSyncAt(cfg.lastAt));
+      if (cfg.lastNote && cfg.lastOk === 'ok' && !overdue) hint += ' · ' + cfg.lastNote;
+      html += '<span class="sep hide-mobile">/</span><span class="wi-sync hide-mobile' + (overdue ? ' is-due' : '') + '">' +
+        esc(hint) + '</span>' +
+        '<button type="button" class="wi-sync-short' + (overdue ? ' is-due' : '') + '" id="syncOpen">' + (overdue ? '待同步' : '已同步') + '</button>';
+    }
     $('#weekInfo').innerHTML = html;
   }
 
@@ -1133,9 +1211,11 @@
 
   function getDayBlocks(week, day) {
     var out = [];
-    (state.data.blocks || []).forEach(function (b) {
+    var weekBlocks = (state.data.blocks || []).filter(function (b) {
+      return !b.weeks || !b.weeks.length || b.weeks.indexOf(week) >= 0;
+    });
+    applyWeekAdjustments(weekBlocks, week).forEach(function (b) {
       if (b.day !== day) return;
-      if (b.weeks && b.weeks.length && b.weeks.indexOf(week) < 0) return;
       out.push(Object.assign({}, b, { kind: 'course' }));
     });
     (state.data.practice || []).forEach(function (p) {
@@ -1153,6 +1233,83 @@
     return (state.data.practice || []).filter(function (p) {
       return p.allWeek && p.weeks && p.weeks.indexOf(week) >= 0;
     });
+  }
+
+  /* ---------- 本周调课 ----------
+     调课只作用于某一周，不改基础课表：
+     { blockId, week, day, period, cancel }  —— cancel 为 true 表示这一周停课。 */
+
+  function adjustmentList() {
+    return (state.data && state.data.adjustments) || [];
+  }
+
+  function adjustmentFor(blockId, week) {
+    var list = adjustmentList();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].blockId === blockId && list[i].week === week) return list[i];
+    }
+    return null;
+  }
+
+  function weekAdjustments(week) {
+    return adjustmentList().filter(function (a) { return a.week === week; });
+  }
+
+  function findBlock(id) {
+    return (state.data.blocks || []).find(function (b) { return b.id === id; }) || null;
+  }
+
+  function setAdjustment(blockId, week, next) {
+    if (!state.data) return;
+    var list = adjustmentList().slice().filter(function (a) {
+      return !(a.blockId === blockId && a.week === week);
+    });
+    if (next) list.push(Object.assign({ blockId: blockId, week: week }, next));
+    state.data.adjustments = list;
+    writeJSON(STORAGE.data, state.data);
+  }
+
+  function clearAdjustment(blockId, week) {
+    setAdjustment(blockId, week, null);
+  }
+
+  function applyWeekAdjustments(blocks, week) {
+    var list = adjustmentList();
+    if (!list.length) return blocks;
+    var byBlock = {};
+    list.forEach(function (a) {
+      if (a.week === week && !byBlock[a.blockId]) byBlock[a.blockId] = a;
+    });
+    var out = [];
+    blocks.forEach(function (b) {
+      var a = byBlock[b.id];
+      if (!a) { out.push(b); return; }
+      if (a.cancel) return;
+      var span = Math.max(0, (b.endPeriod || b.startPeriod) - b.startPeriod);
+      out.push(Object.assign({}, b, {
+        day: a.day,
+        startPeriod: a.period,
+        endPeriod: a.period + span,
+        adjusted: a,
+        baseDay: b.day,
+        baseStart: b.startPeriod
+      }));
+    });
+    return out;
+  }
+
+  function adjustmentLabel(b, a) {
+    var span = Math.max(0, (b.endPeriod || b.startPeriod) - b.startPeriod);
+    var period = '第 ' + a.period + (span ? '–' + (a.period + span) : '') + ' 节';
+    if (a.cancel) return '本周停课';
+    return '本周改到 ' + WEEK_NAMES[a.day] + ' ' + period;
+  }
+
+  function adjustedCardLabel(b) {
+    var span = Math.max(0, (b.endPeriod || b.startPeriod) - b.startPeriod);
+    var base = '原 ' + WEEK_NAMES[b.baseDay || b.day] + ' 第 ' + (b.baseStart || b.startPeriod) +
+      (span ? '–' + ((b.baseStart || b.startPeriod) + span) : '') + ' 节';
+    return '本周调课 · ' + base;
   }
 
   function statusTagFor(block, date, isToday) {
@@ -1253,18 +1410,48 @@
       (allWeek.length ? '<span>· 本周另有整周实践</span>' : '') + '</div>';
 
     if (!blocks.length) {
-      html += '<div class="empty' + (allWeek.length ? ' has-data' : '') + '">' +
-        '<div class="empty-rule"></div>' +
-        '<div class="glyph">空</div>' +
-        '<p>' + (allWeek.length ? '这一周被实践安排占用了。' : '这一天没有排课，留白也是课程表的一部分。') + '</p>' +
-        '</div>';
-      $('#todayView').innerHTML = html;
-      return;
+      var onlyStops = weekAdjustments(week).filter(function (a) {
+        if (!a.cancel) return false;
+        var cb = findBlock(a.blockId);
+        return cb && cb.day === day;
+      });
+      if (!onlyStops.length) {
+        html += '<div class="empty' + (allWeek.length ? ' has-data' : '') + '">' +
+          '<div class="empty-rule"></div>' +
+          '<div class="glyph">空</div>' +
+          '<p>' + (allWeek.length ? '这一周被实践安排占用了。' : '这一天没有排课，留白也是课程表的一部分。') + '</p>' +
+          '</div>';
+        $('#todayView').innerHTML = html;
+        return;
+      }
     }
 
     html += '<div class="timeline">';
+    var stops = weekAdjustments(week).filter(function (a) {
+      if (!a.cancel) return false;
+      var cb = findBlock(a.blockId);
+      return cb && cb.day === day;
+    }).map(function (a) { return findBlock(a.blockId); }).sort(function (x, y) {
+      return (x.startPeriod || 0) - (y.startPeriod || 0);
+    });
+    function stopCard(cb) {
+      return '<button type="button" class="class-card is-cancelled" data-block="' + esc(cb.id) + '">' +
+        '<div class="cc-time">' +
+        '<span class="cc-start">' + esc(periodStart(cb.startPeriod) || '—') + '</span>' +
+        '<span class="cc-end">' + esc(periodEnd(cb.endPeriod) || '') + '</span>' +
+        '<span class="cc-period">' + cb.startPeriod + (cb.endPeriod !== cb.startPeriod ? '–' + cb.endPeriod : '') + ' 节</span>' +
+        '</div>' +
+        '<div class="cc-body">' +
+        '<span class="cc-name">' + esc(cb.name) + '</span>' +
+        '<div class="cc-meta">本周停课 · 这一周不用去</div>' +
+        '</div>' +
+        '</button>';
+    }
     for (var k = 0; k < blocks.length; k++) {
       var b = blocks[k];
+      while (stops.length && (stops[0].startPeriod || 0) <= (b.startPeriod || 0)) {
+        html += stopCard(stops.shift());
+      }
       var info = infos[k];
       var note = getNote(b.id);
       var stText = periodStart(b.startPeriod) || '';
@@ -1278,6 +1465,7 @@
       var cls = 'class-card state-' + info.state +
         (info.tag ? ' has-status' : '') +
         (note && note.text ? ' has-note' : '') +
+        (b.adjusted ? ' is-adjusted' : '') +
         (b.kind === 'practice' ? ' is-practice' : '');
 
       html += '<button type="button" class="' + cls + '" data-block="' + esc(b.id) + '" ' +
@@ -1292,6 +1480,7 @@
         '<span class="cc-name">' + esc(b.name) + '</span>' +
         '<div class="cc-meta">' + esc(meta.join(' · ')) + '</div>' +
         '<div class="cc-weeks">' + esc(formatWeeks(b.weeks)) + (b.weeksUnknown ? ' · 请核对' : '') + '</div>' +
+        (b.adjusted ? '<div class="cc-adj">' + esc(adjustedCardLabel(b)) + '</div>' : '') +
         (note && note.text
           ? '<div class="cc-note"><span>备注</span>' + esc(note.text) + '</div>'
           : '<div class="cc-note is-empty">＋ 备注</div>') +
@@ -1322,6 +1511,7 @@
     var blocks = (state.data.blocks || []).filter(function (b) {
       return !b.weeks || !b.weeks.length || b.weeks.indexOf(week) >= 0;
     });
+    blocks = applyWeekAdjustments(blocks, week);
     var sessions = (state.data.practice || []).filter(function (p) {
       return !p.allWeek && p.weeks && p.weeks.indexOf(week) >= 0;
     });
@@ -1355,6 +1545,21 @@
       '</div>' +
       '<span class="legend-note">颜色越深越近 · 点按课块看详情</span>' +
       '</div>';
+
+    var weekAdjs = weekAdjustments(week);
+    if (weekAdjs.length) {
+      html += '<div class="adj-strip">';
+      weekAdjs.forEach(function (a) {
+        var ab = findBlock(a.blockId);
+        if (!ab) return;
+        html += '<div class="adj-item' + (a.cancel ? ' is-cancel' : '') + '">' +
+          '<span class="ai-tag">' + (a.cancel ? '停课' : '调课') + '</span>' +
+          '<span class="ai-t">' + esc(ab.name) + ' · ' + esc(adjustmentLabel(ab, a)) + '</span>' +
+          '<button type="button" class="ai-x" data-undo-adj="' + esc(a.blockId) + '" aria-label="撤销本周调整">×</button>' +
+          '</div>';
+      });
+      html += '</div>';
+    }
 
     if (allWeek.length) {
       html += '<div class="week-practice-strip">';
@@ -1412,14 +1617,17 @@
         (span <= 1 ? ' compact' : '') +
         (info.tagShort ? ' has-tag' : '') +
         (note && note.text ? ' has-note' : '') +
+        (b.adjusted ? ' is-adjusted' : '') +
         (b.kind === 'practice' ? ' is-practice' : '');
       var blockTitle = b.name + (b.teacher ? ' · ' + b.teacher : '') + (b.room ? ' · ' + b.room : '') +
+        (b.adjusted ? ' · 本周调课：' + adjustmentLabel(b, b.adjusted) : '') +
         (note && note.text ? ' · 有备注' : '');
       html += '<button type="button" class="' + cls + '" data-block="' + esc(b.id) + '" ' +
         'style="grid-column:' + (b.day + 1) + ';grid-row:' + (b.startPeriod + 1) + ' / span ' + span +
         ';background:' + info.bg + ';color:' + info.fg + '" ' +
         'title="' + esc(blockTitle) + '">' +
         (info.tagShort ? '<span class="tt-tag">' + esc(info.tagShort) + '</span>' : '') +
+        (b.adjusted ? '<span class="tt-adj">调</span>' : '') +
         (note && note.text ? '<span class="tt-note-dot" aria-label="有备注"></span>' : '') +
         '<span class="tb-name">' + esc(b.name) + (b.weeksUnknown ? ' <span class="tb-unknown">*</span>' : '') + '</span>' +
         (b.room ? '<span class="tb-room">' + esc(b.room) + '</span>' : '') +
@@ -1821,7 +2029,50 @@
       '<div class="detail-row"><div class="dr-label">周次</div><div class="dr-value">' + esc(formatWeeks(rec.weeks)) + '</div></div>' +
       '</div>';
 
-    var body = rows +
+    /* 本周调课：只改当前这一周，基础课表不动 */
+    var wk = state.week;
+    var inWeek = !rec.weeks || !rec.weeks.length || rec.weeks.indexOf(wk) >= 0;
+    var adj = (rec.kind !== 'practice' && inWeek && rec.day) ? adjustmentFor(rec.id, wk) : null;
+    var adjHTML = '';
+    if (rec.kind !== 'practice' && inWeek && rec.day) {
+      var adjSpan = Math.max(0, (rec.endPeriod || rec.startPeriod) - rec.startPeriod);
+      var maxP = Math.min(30, Math.max(1, state.settings.periods.length));
+      var periodOpts = '';
+      for (var pi = 1; pi + adjSpan <= maxP; pi++) {
+        var picked = adj && !adj.cancel ? adj.period : rec.startPeriod;
+        periodOpts += '<option value="' + pi + '"' + (picked === pi ? ' selected' : '') + '>' +
+          '第 ' + pi + (adjSpan ? '–' + (pi + adjSpan) : '') + ' 节</option>';
+      }
+      var selDay = adj && !adj.cancel ? adj.day : rec.day;
+      var dayBtns = '';
+      for (var di = 1; di <= 7; di++) {
+        dayBtns += '<button type="button" class="adj-day' + (di === selDay ? ' active' : '') + '" ' +
+          'data-adj-day="' + di + '">' + WEEK_NAMES[di] + '</button>';
+      }
+      var baseLabel = WEEK_NAMES[rec.day] + ' 第 ' + rec.startPeriod +
+        (rec.endPeriod !== rec.startPeriod ? '–' + rec.endPeriod : '') + ' 节';
+      var nowText = !adj
+        ? '本周按原课表上课（' + baseLabel + '）。'
+        : (adj.cancel
+          ? '本周已停课，原时间为 ' + baseLabel + '。'
+          : adjustmentLabel(rec, adj) + '（原 ' + baseLabel + '）。');
+      adjHTML = '<div class="form-section adj-section">' +
+        '<h3>本周调课 · 第 ' + wk + ' 周</h3>' +
+        '<p class="hint adj-now" id="adjNow">' + esc(nowText) + '</p>' +
+        '<div class="adj-form" id="adjForm" hidden>' +
+        '<div class="adj-days" id="adjDays">' + dayBtns + '</div>' +
+        '<div class="field" style="margin-top:10px"><label for="adjPeriod">改到第几节</label>' +
+        '<select id="adjPeriod">' + periodOpts + '</select></div>' +
+        '<label class="adj-check"><input type="checkbox" id="adjCancelCk"' + (adj && adj.cancel ? ' checked' : '') + '> 本周停课，不排这节课</label>' +
+        '</div>' +
+        '<div class="adj-btns">' +
+        '<button type="button" class="btn ghost" id="adjEdit">调课 / 停课</button>' +
+        '<button type="button" class="btn ghost" id="adjReset"' + (adj ? '' : ' hidden') + '>恢复本周正常</button>' +
+        '<button type="button" class="btn primary" id="adjSave" hidden>保存调整</button>' +
+        '</div></div>';
+    }
+
+    var body = rows + adjHTML +
       '<div class="form-section"><h3>上课备注</h3>' +
       '<textarea id="noteText" class="note-text" maxlength="1000" placeholder="比如：带实验报告、交作业、找老师签到、带计算器…">' + esc(note.text || '') + '</textarea>' +
       '<div class="field" style="margin-top:10px"><label for="noteReminder">提醒</label>' +
@@ -1842,6 +2093,65 @@
       footer: '<button type="button" class="btn ghost" data-close>取消</button>' +
         '<button type="button" class="btn primary" id="saveNote">保存备注</button>'
     });
+
+    var adjForm = modal.overlay.querySelector('#adjForm');
+    if (adjForm) {
+      var adjEditBtn = modal.overlay.querySelector('#adjEdit');
+      var adjSaveBtn = modal.overlay.querySelector('#adjSave');
+      var adjResetBtn = modal.overlay.querySelector('#adjReset');
+      var adjCancelCk = modal.overlay.querySelector('#adjCancelCk');
+      var adjDaysEl = modal.overlay.querySelector('#adjDays');
+      var adjPeriodEl = modal.overlay.querySelector('#adjPeriod');
+
+      function syncCancelState() {
+        var on = adjCancelCk.checked;
+        adjDaysEl.classList.toggle('is-off', on);
+        adjPeriodEl.disabled = on;
+      }
+      syncCancelState();
+      adjCancelCk.addEventListener('change', syncCancelState);
+
+      adjEditBtn.addEventListener('click', function () {
+        var opening = adjForm.hasAttribute('hidden');
+        if (opening) adjForm.removeAttribute('hidden');
+        else adjForm.setAttribute('hidden', '');
+        adjSaveBtn.hidden = !opening;
+        adjEditBtn.textContent = opening ? '收起' : '调课 / 停课';
+      });
+
+      adjDaysEl.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-adj-day]');
+        if (!btn) return;
+        Array.prototype.forEach.call(adjDaysEl.querySelectorAll('.adj-day'), function (x) {
+          x.classList.toggle('active', x === btn);
+        });
+      });
+
+      adjSaveBtn.addEventListener('click', function () {
+        var next = null;
+        if (adjCancelCk.checked) {
+          next = { cancel: true };
+        } else {
+          var dayBtn = adjDaysEl.querySelector('.adj-day.active');
+          var day = dayBtn ? parseInt(dayBtn.dataset.adjDay, 10) : rec.day;
+          var period = parseInt(adjPeriodEl.value, 10) || rec.startPeriod;
+          next = (day === rec.day && period === rec.startPeriod) ? null : { day: day, period: period };
+        }
+        setAdjustment(rec.id, wk, next);
+        modal.close();
+        renderAll();
+        syncPhoneReminders();
+        toast(!next ? '已恢复本周原课表' : (next.cancel ? '本周已标记停课' : '本周已改到 ' + WEEK_NAMES[next.day]));
+      });
+
+      adjResetBtn.addEventListener('click', function () {
+        clearAdjustment(rec.id, wk);
+        modal.close();
+        renderAll();
+        syncPhoneReminders();
+        toast('已恢复本周原课表');
+      });
+    }
 
     var cancel = modal.overlay.querySelector('[data-close]');
     if (cancel) cancel.addEventListener('click', modal.close);
@@ -1954,6 +2264,66 @@
     return opts;
   }
 
+  function syncSettingsHTML() {
+    var cfg = state.settings.sync || {};
+    var auto = state.settings.autoImport;
+    var dayNames = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+    var dayOpts = dayNames.map(function (n, i) {
+      return '<option value="' + (i + 1) + '"' + ((parseInt(cfg.weekday, 10) || 1) === i + 1 ? ' selected' : '') + '>每' + n + '</option>';
+    }).join('');
+    var lastLine = !cfg.lastAt ? '还没同步过'
+      : '上次同步 ' + fmtSyncAt(cfg.lastAt) + (cfg.lastNote ? ' · ' + cfg.lastNote : '') +
+        (cfg.lastOk === 'fail' ? '（上次未完成，可能需要重新登录）' : '');
+    var hint = auto
+      ? '同步日 / 时间只是提醒窗口：打开 App 时如果已经过了这个时间，就自动刷新。'
+      : '先在「导入」里做一次自动导入并选好学校，这里才能每周刷新。';
+    return '<div class="form-section"><h3>每周同步</h3>' +
+      '<div class="sync-switches">' +
+      '<label class="sync-switch' + (cfg.enabled !== false ? ' is-on' : '') + '">' +
+      '<input type="checkbox" id="setSyncOn"' + (cfg.enabled !== false ? ' checked' : '') + '>' +
+      '<span class="ss-copy"><span class="ss-title">每周自动同步</span>' +
+      '<em class="ss-note">到点打开 App 就自动刷新课表，有变化直接应用</em></span>' +
+      '</label>' +
+      '<label class="sync-switch' + (cfg.keepAlive !== false ? ' is-on' : '') + '">' +
+      '<input type="checkbox" id="setKeepAlive"' + (cfg.keepAlive !== false ? ' checked' : '') + '>' +
+      '<span class="ss-copy"><span class="ss-title">保持登录</span>' +
+      '<em class="ss-note">每 25 分钟轻量续一次会话，少登录、少验证码</em></span>' +
+      '</label>' +
+      '</div>' +
+      '<div class="form-grid sync-when">' +
+      '<div class="field"><label for="setSyncWeekday">同步日</label><select id="setSyncWeekday">' + dayOpts + '</select></div>' +
+      '<div class="field"><label for="setSyncTime">时间</label><input id="setSyncTime" type="time" value="' + esc(cfg.time || '07:00') + '"></div>' +
+      '</div>' +
+      '<p class="hint">' + esc(hint) + '</p>' +
+      '<p class="hint sync-last" id="syncLast">' + esc(lastLine) + '</p>' +
+      '<div class="settings-actions"><button type="button" class="btn ghost" id="syncNowBtn">立即同步</button></div>' +
+      credSettingsHTML() +
+      '</div>';
+  }
+
+  function credSettingsHTML() {
+    var bridge = window.AndroidBridge;
+    var canCred = !!(bridge && typeof bridge.hasCredentials === 'function');
+    if (!canCred) {
+      return '<p class="hint">「登录一次、之后自动同步」需要安卓安装版：网页版没有后台登录能力。</p>';
+    }
+    var saved = false, user = '';
+    try { saved = bridge.hasCredentials(); user = saved ? bridge.credentialUser() : ''; } catch (e) {}
+    return '<div class="cred-box">' +
+      '<div class="cred-line">自动登录：<b id="credStatus">' +
+      (saved ? '已保存 ' + esc(user || '学号') : '未保存') + '</b></div>' +
+      '<div class="form-grid">' +
+      '<div class="field"><label for="credUser">学号</label><input id="credUser" value="' + esc(saved ? user : '') + '" autocomplete="username"></div>' +
+      '<div class="field"><label for="credPass">密码</label><input id="credPass" type="password" placeholder="只在保存时读一次" autocomplete="current-password"></div>' +
+      '</div>' +
+      '<div class="settings-actions">' +
+      '<button type="button" class="btn ghost" id="credSave">保存账号</button>' +
+      '<button type="button" class="btn ghost" id="credClear">清除已保存账号</button>' +
+      '</div>' +
+      '<p class="hint">密码用系统密钥（Android Keystore）加密后只存在这台手机，不上传、也不写进导出的备份；学校会话过期时，同步会用它在登录页自动登录。</p>' +
+      '</div>';
+  }
+
   function openSettings(trigger) {
     var s = state.settings;
     var presets = loadPresets();
@@ -1998,6 +2368,7 @@
       '<select id="setReminder">' + reminderOptionsHTML(parseInt(s.reminderDefault, 10) || 0) + '</select>' +
       '<span class="hint">所有课程默认按这个时间提醒；每节课可在备注里单独改或关闭。Android 安装版会同步系统通知；iPhone 请导出 .ics 并导入系统日历。</span>' +
       '</div></div></div>' +
+      syncSettingsHTML() +
       '<div class="form-section"><h3>安卓安装版</h3>' + apkDownloadHTML('settings') + '</div>' +
       '<div class="form-section"><h3>数据</h3>' +
       '<div class="settings-actions">' +
@@ -2069,6 +2440,45 @@
       renumberPeriods();
     });
 
+    $('#syncNowBtn').addEventListener('click', function () {
+      close(function () { startSync('manual'); });
+    });
+
+    ['setSyncOn', 'setKeepAlive'].forEach(function (id) {
+      var box = document.getElementById(id);
+      if (!box) return;
+      box.addEventListener('change', function () {
+        var wrap = box.closest('.sync-switch');
+        if (wrap) wrap.classList.toggle('is-on', box.checked);
+      });
+    });
+
+    var credSaveBtn = overlay.querySelector('#credSave');
+    if (credSaveBtn) {
+      credSaveBtn.addEventListener('click', function () {
+        var u = document.getElementById('credUser').value.trim();
+        var p = document.getElementById('credPass').value;
+        if (!u || !p) { toast('填好学号和密码', true); return; }
+        var ok = false;
+        try { ok = window.AndroidBridge.saveCredentials(u, p); } catch (e) {}
+        document.getElementById('credPass').value = '';
+        if (ok) {
+          document.getElementById('credStatus').textContent = '已保存 ' + u;
+          toast('已保存，之后自动同步会自己登录');
+        } else {
+          toast('保存失败', true);
+        }
+      });
+    }
+    var credClearBtn = overlay.querySelector('#credClear');
+    if (credClearBtn) {
+      credClearBtn.addEventListener('click', function () {
+        try { window.AndroidBridge.clearCredentials(); } catch (e) {}
+        document.getElementById('credStatus').textContent = '未保存';
+        toast('已清除保存的账号');
+      });
+    }
+
     $('#settingsImport').addEventListener('click', function () {
       close(function () {
         var btn = document.getElementById('importBtn');
@@ -2135,6 +2545,8 @@
       }
       var maxWeek = clamp(parseInt($('#setMaxWeek').value, 10) || 20, 1, 30);
       var oldWeek1 = state.settings.week1;
+      var oldSync = state.settings.sync || {};
+      var oldAuto = state.settings.autoImport || null;
 
       state.settings = {
         school: $('#setSchool').value.trim() || '我的学校',
@@ -2147,10 +2559,23 @@
           id: state.settings.student.id || '',
           className: $('#setClass').value.trim()
         },
-        reminderDefault: parseInt($('#setReminder').value, 10) || 0
+        reminderDefault: parseInt($('#setReminder').value, 10) || 0,
+        schema: state.settings.schema || 1,
+        sync: {
+          enabled: $('#setSyncOn').checked,
+          keepAlive: $('#setKeepAlive').checked,
+          weekday: parseInt($('#setSyncWeekday').value, 10) || 1,
+          time: $('#setSyncTime').value || '07:00',
+          lastAt: oldSync.lastAt || '',
+          lastOk: oldSync.lastOk || '',
+          lastNote: oldSync.lastNote || '',
+          lastAttempt: oldSync.lastAttempt || ''
+        },
+        autoImport: oldAuto
       };
 
       writeJSON(STORAGE.settings, state.settings);
+      scheduleNativeSync();
       state.week = oldWeek1 !== week1 ? getCurrentWeek() : clamp(state.week, 1, maxWeek);
       close();
       renderAll();
@@ -2163,12 +2588,12 @@
 
   var SEED_SCHOOLS = [
     {
-      id: 'seed-yzpc-eams',
-      name: '扬州职业技术大学',
-      aliases: ['扬州市职业大学', '扬州职业大学'],
-      province: '江苏',
+      id: 'seed-demo-eams',
+      name: '示例大学',
+      aliases: ['示例学院'],
+      province: '示例省',
       system: 'EAMS',
-      login: 'https://jw.yzpc.edu.cn/eams/loginExt.action',
+      login: 'https://jw.example.edu.cn/eams/loginExt.action',
       builtin: true
     }
   ];
@@ -2487,7 +2912,7 @@
       '<h3 class="import-title">先确认学校</h3>' +
       '<p class="import-sub">自动入口会打开学校自己的教务登录页；登录与密码输入都在学校页面内完成。</p>' +
       '<div class="field"><label for="autoSchool">学校名称</label>' +
-        '<input id="autoSchool" value="' + esc(prefill || '') + '" placeholder="例如：扬州职业技术大学" autocomplete="organization">' +
+        '<input id="autoSchool" value="' + esc(prefill || '') + '" placeholder="输入学校名称，例如：示例大学" autocomplete="organization">' +
       '</div>' +
       '<div class="school-suggest" id="autoSuggest"></div>' +
       '<div class="school-db-bar"><span id="autoDbCount">本地学校库</span>' +
@@ -2830,6 +3255,8 @@
         if (window.AndroidBridge && typeof window.AndroidBridge.startAutoImport === 'function' && autoSys) {
           e.preventDefault();
           modal.close();
+          state.settings.autoImport = { loginUrl: href, school: schoolName, system: sys || '其他' };
+          writeJSON(STORAGE.settings, state.settings);
           try { window.AndroidBridge.startAutoImport(href, schoolName, sys || '其他'); } catch (err) { toast('无法启动自动导入', true); }
           return;
         }
@@ -2943,6 +3370,7 @@
       state.view = 'today';
       writeJSON(STORAGE.settings, state.settings);
       writeJSON(STORAGE.data, state.data);
+      recordSync(true, '手动导入 ' + stats.blocks + ' 个课程块');
       modal.close();
       showApp();
       renderAll();
@@ -2951,7 +3379,7 @@
     });
   }
 
-  function importAutoCourses(payload) {
+  function buildAutoParsed(payload) {
     var data = payload;
     if (typeof data === 'string') {
       try { data = JSON.parse(data); } catch (e) { data = null; }
@@ -2959,7 +3387,7 @@
     var courses = data && data.courses ? data.courses : [];
     if (!Array.isArray(courses) || !courses.length) {
       toast('自动导入没有抓到课程', true);
-      return;
+      return null;
     }
     var blocks = [];
     var names = {};
@@ -3001,7 +3429,7 @@
     });
     if (!blocks.length) {
       toast('抓到课表页，但没有解析到课程', true);
-      return;
+      return null;
     }
     var catalog = (Array.isArray(data.catalog) ? data.catalog : []).map(function (x) {
       x = x || {};
@@ -3079,9 +3507,204 @@
       fileName: '自动导入 · ' + (data.system || '教务系统'),
       sheetName: data.system || '自动导入'
     };
+    return parsed;
+  }
+
+  /* ---------- 每周自动同步 ---------- */
+
+  function syncConfig() {
+    return state.settings.sync || {};
+  }
+
+  function nextSyncSlot(from) {
+    var cfg = syncConfig();
+    var wd = clamp(parseInt(cfg.weekday, 10) || 1, 1, 7);
+    var parts = String(cfg.time || '07:00').split(':');
+    var hh = clamp(parseInt(parts[0], 10) || 0, 0, 23);
+    var mm = clamp(parseInt(parts[1], 10) || 0, 0, 59);
+    var d = new Date(from.getTime());
+    var diff = ((wd % 7) - d.getDay() + 7) % 7;
+    d.setDate(d.getDate() + diff);
+    d.setHours(hh, mm, 0, 0);
+    if (d.getTime() <= from.getTime()) d.setDate(d.getDate() + 7);
+    return d;
+  }
+
+  function syncOverdue() {
+    var cfg = syncConfig();
+    if (!cfg.enabled) return false;
+    if (!cfg.lastAt) return true;
+    var last = new Date(cfg.lastAt);
+    if (isNaN(last.getTime())) return true;
+    return Date.now() - last.getTime() > 6.5 * 86400000;
+  }
+
+  function fmtSyncAt(iso) {
+    var d = iso ? new Date(iso) : null;
+    if (!d || isNaN(d.getTime())) return '还没同步过';
+    return (d.getMonth() + 1) + '.' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+
+  function recordSync(ok, note) {
+    var cfg = state.settings.sync;
+    cfg.lastAt = new Date().toISOString();
+    cfg.lastOk = ok ? 'ok' : 'fail';
+    cfg.lastNote = note || '';
+    writeJSON(STORAGE.settings, state.settings);
+  }
+
+  function scheduleNativeSync() {
+    if (!window.AndroidBridge || typeof window.AndroidBridge.scheduleSync !== 'function') return;
+    var cfg = syncConfig();
+    try {
+      window.AndroidBridge.scheduleSync(JSON.stringify({
+        enabled: !!cfg.enabled,
+        weekday: clamp(parseInt(cfg.weekday, 10) || 1, 1, 7),
+        time: cfg.time || '07:00'
+      }));
+    } catch (e) {}
+    if (typeof window.AndroidBridge.scheduleKeepAlive === 'function') {
+      var auto = state.settings.autoImport;
+      try {
+        window.AndroidBridge.scheduleKeepAlive(
+          auto ? keepAliveUrl(auto.loginUrl) : '',
+          !!cfg.enabled && cfg.keepAlive !== false && !!auto
+        );
+      } catch (e) {}
+    }
+  }
+
+  function keepAliveUrl(loginUrl) {
+    if (!loginUrl) return '';
+    return String(loginUrl).replace(/login(Ext)?\.action.*$/i, 'courseTableForStd.action');
+  }
+
+  function startSync(mode) {
+    var cfg = state.settings.autoImport;
+    if (!cfg || !cfg.loginUrl) {
+      var ibtn = document.getElementById('importBtn');
+      showImportStart(ibtn && ibtn.isConnected ? ibtn : null);
+      toast('选一次学校完成导入，之后每周自动同步');
+      return false;
+    }
+    state.settings.sync.lastAttempt = new Date().toISOString();
+    writeJSON(STORAGE.settings, state.settings);
+    if (window.AndroidBridge && typeof window.AndroidBridge.startAutoSync === 'function') {
+      try {
+        window.AndroidBridge.startAutoSync(cfg.loginUrl, cfg.school || '', cfg.system || '', mode || 'sync');
+        return true;
+      } catch (e) {
+        toast('无法启动同步', true);
+        return false;
+      }
+    }
+    if (window.AndroidBridge && typeof window.AndroidBridge.startAutoImport === 'function') {
+      try {
+        window.AndroidBridge.startAutoImport(cfg.loginUrl, cfg.school || '', cfg.system || '', mode || 'sync');
+        return true;
+      } catch (e) {
+        toast('无法启动同步', true);
+        return false;
+      }
+    }
+    toast('网页版没有后台同步，请用安卓版自动同步', true);
+    return false;
+  }
+
+  function teacherKey(v) {
+    return String(v || '').split(/[,，、;；\s]+/).filter(Boolean).sort().join(',');
+  }
+
+  function syncKeyOf(b) {
+    return String(b.section || b.courseCode || b.name || '') + '|' + b.day + '|' + b.startPeriod;
+  }
+
+  function applyAutoSyncData(parsed) {
+    var oldList = (state.data && state.data.blocks) || [];
+    var oldMap = {};
+    oldList.forEach(function (b) {
+      var k = syncKeyOf(b);
+      if (!oldMap[k]) oldMap[k] = [];
+      oldMap[k].push(b);
+    });
+    var used = {};
+    var added = 0, changed = 0;
+    var firstDiff = '';
+    parsed.blocks.forEach(function (nb) {
+      var list = oldMap[syncKeyOf(nb)] || [];
+      var ob = null;
+      var bestScore = -1;
+      for (var i = 0; i < list.length; i++) {
+        var cand = list[i];
+        if (used[cand.id]) continue;
+        var score = 0;
+        if (String(cand.room) === String(nb.room)) score += 4;
+        if (String(cand.teacher || '') === String(nb.teacher || '')) score += 4;
+        if ((cand.weeks || []).join(',') === (nb.weeks || []).join(',')) score += 2;
+        if (cand.endPeriod === nb.endPeriod) score += 1;
+        if (score > bestScore) { bestScore = score; ob = cand; }
+      }
+      if (ob) {
+        nb.id = ob.id;
+        used[ob.id] = 1;
+        var sameTeacher = teacherKey(ob.teacher) === teacherKey(nb.teacher);
+        if (sameTeacher && nb.teacher !== ob.teacher) nb.teacher = ob.teacher;
+        var diff = '';
+        if (String(ob.room) !== String(nb.room)) diff = '教室 ' + (ob.room || '—') + '→' + (nb.room || '—');
+        else if (!sameTeacher) diff = '教师改为 ' + (nb.teacher || '—');
+        else if (ob.endPeriod !== nb.endPeriod) diff = '节次改为 ' + nb.startPeriod + '–' + nb.endPeriod;
+        else if ((ob.weeks || []).join(',') !== (nb.weeks || []).join(',')) diff = '周次变了';
+        if (diff) {
+          changed++;
+          if (!firstDiff) firstDiff = nb.name + ' ' + diff;
+        }
+      } else {
+        nb.id = 'auto_' + nb.day + '_' + nb.startPeriod + '_' + added;
+        added++;
+      }
+    });
+    var removed = 0;
+    oldList.forEach(function (ob) {
+      if (!used[ob.id]) removed++;
+    });
+
+    var validIds = {};
+    parsed.blocks.forEach(function (b) { validIds[b.id] = 1; });
+    parsed.practice = (state.data && state.data.practice) || [];
+    parsed.adjustments = ((state.data && state.data.adjustments) || []).filter(function (a) {
+      return validIds[a.blockId];
+    });
+    parsed.syncLog = ((state.data && state.data.syncLog) || []).slice(-4).concat([{
+      at: new Date().toISOString(),
+      added: added,
+      removed: removed,
+      changed: changed
+    }]);
+    state.data = parsed;
+    writeJSON(STORAGE.data, state.data);
+
+    var note = added || removed || changed
+      ? '新增 ' + added + ' · 调整 ' + changed + ' · 移除 ' + removed + (firstDiff ? '（' + firstDiff + '）' : '')
+      : '无变化';
+    recordSync(true, note);
+    renderAll();
+    syncPhoneReminders();
+    toast('本周课表已同步 · ' + note);
+  }
+
+  function importAutoCourses(payload, mode) {
+    var parsed = buildAutoParsed(payload);
+    if (!parsed) return;
+    if (mode === 'sync' && state.data && state.data.blocks && state.data.blocks.length) {
+      applyAutoSyncData(parsed);
+      return;
+    }
     showImportPreview(parsed);
   }
   window.importAutoCourses = importAutoCourses;
+  window.__forceSync = function () {
+    startSync('sync');
+  };
 
   function showError(title, message) {
     var body = '<p style="margin:0 0 12px;font-size:14px;line-height:1.7">' + esc(message) + '</p>' +
@@ -3140,27 +3763,27 @@
     var weeksMain = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
     var weeksLong = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
     var blocks = [
-      mkBlock('汽车文化', '02B30040.03', '强爱民', 1, 1, 2, weeksMain, '崇思楼A305', '瘦西湖校区', '1.5'),
-      mkBlock('高等数学', '19A00010.14', '耿春梅', 1, 5, 6, weeksMain, '崇文楼C202', '瘦西湖校区', '4'),
-      mkBlock('实用英语1', '14B00011.16', '夏小维', 1, 7, 8, weeksLong, '崇文楼A106', '瘦西湖校区', '3'),
-      mkBlock('高等数学', '19A00010.14', '耿春梅', 3, 5, 6, weeksMain, '崇文楼C202', '瘦西湖校区', '4'),
-      mkBlock('高等数学', '19A00010.14', '耿春梅', 5, 7, 8, [7, 8, 9, 10, 11], '崇文楼C302', '瘦西湖校区', '4'),
-      mkBlock('实用英语1', '14B00011.16', '夏小维', 2, 1, 2, weeksLong, '崇文楼A113', '瘦西湖校区', '3'),
-      mkBlock('实用英语1', '14B00011.16', '夏小维', 4, 3, 4, weeksLong, '崇文楼A113', '瘦西湖校区', '3'),
-      mkBlock('程序设计基础', '04B00051.16', '赵改连', 3, 1, 2, weeksMain, '崇文楼A206', '瘦西湖校区', '1'),
-      mkBlock('机械制图', '02A30020.04', '张歆伊', 2, 3, 4, weeksMain, '崇思楼B315', '瘦西湖校区', '3'),
-      mkBlock('机械制图', '02A30020.04', '张歆伊', 4, 1, 2, weeksMain, '崇思楼B315', '瘦西湖校区', '3'),
-      mkBlock('大学体育', '20B00013.70', '陈婷婷', 5, 3, 4, weeksLong, '田径场', '瘦西湖校区', '1'),
-      mkBlock('思想道德与法治', '18B00030.20', '郭双燕', 3, 5, 6, weeksLong, '知行楼C201', '瘦西湖校区', '3'),
-      mkBlock('人工智能基础', '04B00080.46', '赵婷婷', 5, 7, 8, [7, 8, 9, 10, 11, 12], '图书馆分室3', '瘦西湖校区', '1'),
-      mkBlock('军事理论', '00A00010.22', '冯晨迪', 3, 9, 11, [7, 8, 9, 10, 11, 12, 13, 14], '崇思楼A312', '瘦西湖校区', '1.5')
+      mkBlock('高等数学', 'DEMO-01', '王老师', 1, 1, 2, weeksMain, '教学楼A101', '主校区', '4'),
+      mkBlock('大学英语', 'DEMO-02', '李老师', 1, 5, 6, weeksLong, '教学楼B203', '主校区', '3'),
+      mkBlock('程序设计基础', 'DEMO-03', '陈老师', 1, 7, 8, weeksLong, '计算机楼C302', '主校区', '3'),
+      mkBlock('大学体育', 'DEMO-04', '刘老师', 2, 1, 2, weeksLong, '田径场', '主校区', '1'),
+      mkBlock('机械制图', 'DEMO-05', '赵老师', 2, 3, 4, weeksMain, '工程楼B315', '主校区', '3'),
+      mkBlock('高等数学', 'DEMO-01', '王老师', 3, 1, 2, weeksMain, '教学楼A101', '主校区', '4'),
+      mkBlock('大学物理', 'DEMO-06', '周老师', 3, 3, 4, weeksMain, '实验楼A210', '主校区', '3'),
+      mkBlock('思想道德与法治', 'DEMO-07', '吴老师', 3, 5, 6, weeksLong, '教学楼C201', '主校区', '3'),
+      mkBlock('大学英语', 'DEMO-02', '李老师', 4, 1, 2, weeksLong, '教学楼B203', '主校区', '3'),
+      mkBlock('大学体育', 'DEMO-04', '刘老师', 4, 3, 4, weeksLong, '田径场', '主校区', '1'),
+      mkBlock('程序设计基础', 'DEMO-03', '陈老师', 4, 7, 8, weeksLong, '计算机楼C302', '主校区', '3'),
+      mkBlock('高等数学', 'DEMO-01', '王老师', 5, 1, 2, weeksMain, '教学楼A101', '主校区', '4'),
+      mkBlock('人工智能基础', 'DEMO-08', '郑老师', 5, 5, 6, weeksMain, '计算机楼C101', '主校区', '2'),
+      mkBlock('军事理论', 'DEMO-09', '孙老师', 5, 9, 11, weeksMain, '教学楼A312', '主校区', '1.5')
     ];
     var practice = [
-      mkPractice('入学教育（含健康、安全教育）', '00C00012.44', '', [2], true, null, null, null, '1'),
-      mkPractice('军事训练及国防教育', '00C00020.20', '', [3, 4], true, null, null, null, '2'),
-      mkPractice('劳动1', '00C00110.95', '陈伟', [5], false, 6, 1, 11, '0.5'),
-      mkPractice('汽车机械制图大作业', '02C30160.03', '张歆伊', [18], false, 1, 1, 4, '1'),
-      mkPractice('专业实践1', '00C00041.B3', '陈伟', [20], true, null, null, null, '1')
+      mkPractice('入学教育', 'DEMO-P1', '', [2], true, null, null, null, '1'),
+      mkPractice('军事训练', 'DEMO-P2', '', [3, 4], true, null, null, null, '2'),
+      mkPractice('劳动实践', 'DEMO-P3', '陈老师', [5], false, 6, 1, 11, '0.5'),
+      mkPractice('课程设计', 'DEMO-P4', '赵老师', [18], false, 1, 1, 4, '1'),
+      mkPractice('专业实践', 'DEMO-P5', '陈老师', [20], true, null, null, null, '1')
     ];
 
     state.data = {
@@ -3169,7 +3792,7 @@
         semester: '2026-2027学年第一学期',
         studentName: '示例同学',
         studentId: '',
-        className: '汽制2603',
+        className: '默认班级',
         fileName: '示例课表',
         sheetName: '示例'
       },
@@ -3191,7 +3814,7 @@
     state.settings.week1 = state.settings.week1 || '2026-08-31';
     state.settings.maxWeek = Math.max(20, state.settings.maxWeek || 20);
     state.settings.student.name = '示例同学';
-    state.settings.student.className = '汽制2603';
+    state.settings.student.className = '默认班级';
 
     writeJSON(STORAGE.settings, state.settings);
     writeJSON(STORAGE.data, state.data);
@@ -3313,13 +3936,20 @@
       var weeks = b.weeks && b.weeks.length ? b.weeks : rangeWeeks(1, maxWeek);
       weeks.forEach(function (w) {
         if (w < 1 || w > maxWeek) return;
-        var date = dateForWeekDay(w, b.day);
-        var st = periodStart(b.startPeriod);
-        var en = periodEnd(b.endPeriod);
+        var icsAdj = adjustmentFor(b.id, w);
+        if (icsAdj && icsAdj.cancel) return;
+        var icsDay = icsAdj ? icsAdj.day : b.day;
+        var icsStartP = icsAdj ? icsAdj.period : b.startPeriod;
+        var icsSpan = Math.max(0, (b.endPeriod || b.startPeriod) - b.startPeriod);
+        var icsEndP = icsStartP + icsSpan;
+        var date = dateForWeekDay(w, icsDay);
+        var st = periodStart(icsStartP);
+        var en = periodEnd(icsEndP);
         var place = [b.room, b.campus].filter(Boolean).join(' ');
         var note = getNote(b.id);
-        var desc = '第 ' + b.startPeriod + (b.endPeriod !== b.startPeriod ? '–' + b.endPeriod : '') +
+        var desc = '第 ' + icsStartP + (icsEndP !== icsStartP ? '–' + icsEndP : '') +
           ' 节；' + formatWeeks(b.weeks) + (b.teacher ? '；教师：' + b.teacher : '') +
+          (icsAdj ? '；本周调课' : '') +
           (note && note.text ? '；备注：' + note.text : '');
         pushEvent(b.id + '-' + w, date, st, en, b.name + (b.teacher ? ' · ' + b.teacher : ''), place, desc, noteLead(b));
       });

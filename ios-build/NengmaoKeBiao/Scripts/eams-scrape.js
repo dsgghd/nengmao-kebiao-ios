@@ -314,7 +314,8 @@
       var campus = rm ? rm[2].trim() : '';
       var wk = [];
       for (var wi = 0; wi < weeks.length; wi++) {
-        if (weeks.charAt(wi) === '1') wk.push(wi + 1);
+        // EAMS 的周次位串第 i 位就是「第 i 周」（与学校导出的 xlsx 一致），不要再 +1
+        if (wi >= 1 && weeks.charAt(wi) === '1') wk.push(wi);
       }
       if (!name || !wk.length) continue;
 
